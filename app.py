@@ -13,50 +13,44 @@ app = Flask(__name__)
 CORS(app)
 
 # ─────────────────────────────────────────
-# ADD YOUR 3 GEMINI API KEYS HERE
+# GEMINI API KEY
 # ─────────────────────────────────────────
-GEMINI_KEYS = [
-    "AIzaSyBdQhJh8coPVwIu1GtPKtLgfLBWdkXIF_A",  # key 1
-    "AIzaSyAa2p46QUSIsTUXIDm1nhJn_tZyO1xDgzc",                            # key 2
-    "AIzaSyCZGiIJz4kBhOhmZgesbYsl_rWpEeJYaEI",                            # key 3
-]
+# Load from environment variables only. Example:
+# GEMINI_API_KEY=your_key_here
+GEMINI_KEY = os.getenv("GEMINI_API_KEY")
+
+if not GEMINI_KEY:
+    raise RuntimeError(
+        "No Gemini API key configured. Set GEMINI_API_KEY in your environment or .env file."
+    )
 
 GEMINI_MODEL = "gemini-2.5-flash"
 
 
-def get_gemini_url(key):
-    return f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={key}"
+def get_gemini_url():
+    return f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_KEY}"
 
 
 def call_gemini(payload):
-    """Try each key until one works"""
-    last_error = None
+    """Call Gemini with the configured API key."""
+    try:
+        print("Using Gemini API key...")
+        response = req.post(
+            get_gemini_url(),
+            headers={"Content-Type": "application/json"},
+            json=payload,
+            timeout=120
+        )
 
-    for i, key in enumerate(GEMINI_KEYS):
-        if not key or key.startswith("PASTE"):
-            continue
+        if response.status_code == 200:
+            return response
 
-        try:
-            print(f"Trying Gemini key {i+1}...")
-            response = req.post(
-                get_gemini_url(key),
-                headers={"Content-Type": "application/json"},
-                json=payload,
-                timeout=120
-            )
+        print(f"Gemini request failed with status {response.status_code}")
+        return response
 
-            if response.status_code == 200:
-                print(f"Key {i+1} worked!")
-                return response
-
-            print(f"Key {i+1} failed with status {response.status_code}")
-            last_error = response
-
-        except Exception as e:
-            print(f"Key {i+1} exception: {e}")
-            last_error = None
-
-    return last_error
+    except Exception as e:
+        print(f"Gemini request exception: {e}")
+        return None
 
 
 # ─────────────────────────────────────────
