@@ -12,9 +12,56 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+# ─────────────────────────────────────────
+# ADD YOUR 3 GEMINI API KEYS HERE
+# ─────────────────────────────────────────
+GEMINI_KEYS = [
+    "AIzaSyBdQhJh8coPVwIu1GtPKtLgfLBWdkXIF_A",  # key 1
+    "AIzaSyAa2p46QUSIsTUXIDm1nhJn_tZyO1xDgzc",                            # key 2
+    "AIzaSyCZGiIJz4kBhOhmZgesbYsl_rWpEeJYaEI",                            # key 3
+]
 
+GEMINI_MODEL = "gemini-2.5-flash"
+
+
+def get_gemini_url(key):
+    return f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={key}"
+
+
+def call_gemini(payload):
+    """Try each key until one works"""
+    last_error = None
+
+    for i, key in enumerate(GEMINI_KEYS):
+        if not key or key.startswith("PASTE"):
+            continue
+
+        try:
+            print(f"Trying Gemini key {i+1}...")
+            response = req.post(
+                get_gemini_url(key),
+                headers={"Content-Type": "application/json"},
+                json=payload,
+                timeout=120
+            )
+
+            if response.status_code == 200:
+                print(f"Key {i+1} worked!")
+                return response
+
+            print(f"Key {i+1} failed with status {response.status_code}")
+            last_error = response
+
+        except Exception as e:
+            print(f"Key {i+1} exception: {e}")
+            last_error = None
+
+    return last_error
+
+
+# ─────────────────────────────────────────
+# REGISTERED PLAYERS
+# ─────────────────────────────────────────
 
 def load_registered_players():
     try:
@@ -51,6 +98,10 @@ def fuzzy_match_name(ocr_name, registered_players):
     return ocr_name
 
 
+# ─────────────────────────────────────────
+# ROUTES
+# ─────────────────────────────────────────
+
 @app.route("/")
 def home():
     return "Esports AI Backend Running"
@@ -80,7 +131,7 @@ def analyze_screenshot():
         b64 = base64.b64encode(img_bytes).decode("utf-8")
         images_parts.append({
             "inline_data": {
-                "mime_type": file.content_type or "image/jpeg",
+                "mime_type": file.content_type or "image/png",
                 "data": b64
             }
         })
@@ -128,12 +179,10 @@ STRICT RULES:
     }
 
     try:
-        response = req.post(
-            GEMINI_URL,
-            headers={"Content-Type": "application/json"},
-            json=payload,
-            timeout=120
-        )
+        response = call_gemini(payload)
+
+        if response is None:
+            return jsonify({"error": "All Gemini API keys failed"})
 
         if response.status_code != 200:
             return jsonify({
