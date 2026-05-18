@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: bgmi-ocr-esports
+    runtime: python
+    buildCommand: apt-get install -y tesseract-ocr && pip install -r requirements.txt
+    startCommand: gunicorn app:app
